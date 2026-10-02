@@ -112,3 +112,4 @@ def test_post_instruction_groq_error(mock_groq_cls):
     response = client.post("/instruction", json={"transcription": "Cualquier cosa"})
     assert response.status_code == 502
     assert "Error communicating with Groq" in response.json()["detail"]
+
