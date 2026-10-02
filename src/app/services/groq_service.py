@@ -10,12 +10,52 @@ from src.app.schemas.voice import InstructionPayload
 ALLOWED_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 
 
+def transcribe_audio_with_groq(
+    file_bytes: bytes,
+    filename: str = "audio.webm",
+    language: str | None = None,
+) -> str:
+    settings = get_settings()
+
+    if not settings.groq_api_key or settings.groq_api_key == "your_groq_api_key_here":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Groq API key is not configured.",
+        )
+
+    client = Groq(api_key=settings.groq_api_key)
+
+    try:
+        kwargs: dict[str, Any] = {
+            "file": (filename, file_bytes),
+            "model": settings.groq_transcription_model,
+            "response_format": "text",
+        }
+        if language:
+            kwargs["language"] = language
+
+        transcription_res = client.audio.transcriptions.create(**kwargs)
+        return str(transcription_res).strip()
+    except GroqError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Error transcribing audio with Groq: {str(exc)}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error during transcription: {str(exc)}",
+        )
+
+
 def parse_instruction_from_groq(transcription: str) -> InstructionPayload:
     settings = get_settings()
 
-    if not settings.groq_api_key or settings.groq_api_key in ("your_groq_api_key_here", "mock_key_for_dev_testing"):
-        # For testing/mocking when real key is not set, handle cleanly or check if mock
-        pass
+    if not settings.groq_api_key or settings.groq_api_key == "your_groq_api_key_here":
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Groq API key is not configured.",
+        )
 
     client = Groq(api_key=settings.groq_api_key)
 
